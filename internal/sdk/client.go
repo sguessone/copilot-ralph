@@ -10,6 +10,7 @@ package sdk
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -495,11 +496,43 @@ func (c *CopilotClient) handleSDKEvent(sdkEvent copilot.SessionEvent, events cha
 		closeDone()
 
 	case "session.error":
-		// Error event
-		if sdkEvent.Data.Message == nil {
-			return
+		// Error event - include as much structured information as available
+		var parts []string
+
+		if sdkEvent.Data.Message != nil && *sdkEvent.Data.Message != "" {
+			parts = append(parts, fmt.Sprintf("message: %s", *sdkEvent.Data.Message))
 		}
 
-		_ = safeEventSender(events, NewErrorEvent(fmt.Errorf("SDK error: %s", *sdkEvent.Data.Message)))
+		if sdkEvent.Data.Error != nil {
+			if sdkEvent.Data.Error.ErrorClass != nil {
+				ec := sdkEvent.Data.Error.ErrorClass
+				if ec.Message != "" {
+					parts = append(parts, fmt.Sprintf("error_class: %s", ec.Message))
+				}
+				if ec.Code != nil && *ec.Code != "" {
+					parts = append(parts, fmt.Sprintf("error_code: %s", *ec.Code))
+				}
+			} else if sdkEvent.Data.Error.String != nil {
+				parts = append(parts, fmt.Sprintf("error: %s", *sdkEvent.Data.Error.String))
+			}
+		}
+
+		if sdkEvent.Data.Stack != nil && *sdkEvent.Data.Stack != "" {
+			parts = append(parts, fmt.Sprintf("stack: %s", *sdkEvent.Data.Stack))
+		}
+
+		// If we have no useful structured fields, include the raw data JSON for debugging
+		var errMsg string
+		if len(parts) > 0 {
+			errMsg = strings.Join(parts, "; ")
+		} else {
+			if b, err := json.Marshal(sdkEvent.Data); err == nil {
+				errMsg = fmt.Sprintf("raw: %s", string(b))
+			} else {
+				errMsg = "session.error (no message)"
+			}
+		}
+
+		_ = safeEventSender(events, NewErrorEvent(fmt.Errorf("SDK error: %s", errMsg)))
 	}
 }
