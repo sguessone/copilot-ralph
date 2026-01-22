@@ -5,7 +5,7 @@ package core
 import (
 	"context"
 
-	"github.com/Sguessone/copilot-ralph/internal/sdk"
+	"github.com/sguessone/copilot-ralph/internal/sdk"
 )
 
 // SDKClient defines the interface for the Copilot SDK client.

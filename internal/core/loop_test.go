@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Sguessone/copilot-ralph/internal/sdk"
+	"github.com/sguessone/copilot-ralph/internal/sdk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

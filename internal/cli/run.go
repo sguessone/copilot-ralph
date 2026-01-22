@@ -19,9 +19,9 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
-	"github.com/Sguessone/copilot-ralph/internal/core"
-	"github.com/Sguessone/copilot-ralph/internal/sdk"
-	"github.com/Sguessone/copilot-ralph/internal/tui/styles"
+	"github.com/sguessone/copilot-ralph/internal/core"
+	"github.com/sguessone/copilot-ralph/internal/sdk"
+	"github.com/sguessone/copilot-ralph/internal/tui/styles"
 )
 
 // Exit codes per spec

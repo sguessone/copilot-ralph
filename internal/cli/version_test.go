@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Sguessone/copilot-ralph/pkg/version"
+	"github.com/sguessone/copilot-ralph/pkg/version"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

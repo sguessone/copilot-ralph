@@ -1,4 +1,4 @@
-module github.com/Sguessone/copilot-ralph
+module github.com/sguessone/copilot-ralph
 
 go 1.25.5
 

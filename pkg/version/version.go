@@ -2,7 +2,7 @@
 //
 // Version information is set at build time using ldflags:
 //
-//	go build -ldflags "-X github.com/Sguessone/copilot-ralph/pkg/version.Version=1.0.0"
+//	go build -ldflags "-X github.com/sguessone/copilot-ralph/pkg/version.Version=1.0.0"
 //
 // See specs/cli.md for version command specification.
 package version
