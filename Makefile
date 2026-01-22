@@ -13,10 +13,10 @@ BUILD_DATE?=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 GO_VERSION?=$(shell go version | awk '{print $$3}')
 
 # Linker flags for version information
-LDFLAGS=-ldflags "-X github.com/JanDeDobbeleer/copilot-ralph/pkg/version.Version=$(VERSION) \
-                  -X github.com/JanDeDobbeleer/copilot-ralph/pkg/version.Commit=$(COMMIT) \
-                  -X github.com/JanDeDobbeleer/copilot-ralph/pkg/version.BuildDate=$(BUILD_DATE) \
-                  -X github.com/JanDeDobbeleer/copilot-ralph/pkg/version.GoVersion=$(GO_VERSION)"
+LDFLAGS=-ldflags "-X github.com/Sguessone/copilot-ralph/pkg/version.Version=$(VERSION) \
+                  -X github.com/Sguessone/copilot-ralph/pkg/version.Commit=$(COMMIT) \
+                  -X github.com/Sguessone/copilot-ralph/pkg/version.BuildDate=$(BUILD_DATE) \
+                  -X github.com/Sguessone/copilot-ralph/pkg/version.GoVersion=$(GO_VERSION)"
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'

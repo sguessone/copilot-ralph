@@ -187,6 +187,11 @@ func (c *CopilotClient) Start() error {
 
 	// Start the SDK client
 	if err := c.sdkClient.Start(); err != nil {
+		// Detect common protocol-version mismatch errors from the SDK/server
+		if strings.Contains(err.Error(), "protocol version mismatch") || strings.Contains(err.Error(), "SDK protocol version mismatch") {
+			return fmt.Errorf("failed to start SDK client: %w; suggestion: update the SDK dependency (github.com/github/copilot-sdk/go) to a version compatible with your Copilot CLI (for example run: go get github.com/github/copilot-sdk/go@latest && go mod tidy), or update/downgrade the Copilot CLI to match the SDK protocol", err)
+		}
+
 		return fmt.Errorf("failed to start SDK client: %w", err)
 	}
 

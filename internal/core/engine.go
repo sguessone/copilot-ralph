@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JanDeDobbeleer/copilot-ralph/internal/sdk"
+	"github.com/Sguessone/copilot-ralph/internal/sdk"
 )
 
 //go:embed system.md

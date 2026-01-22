@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/JanDeDobbeleer/copilot-ralph/pkg/version"
+	"github.com/Sguessone/copilot-ralph/pkg/version"
 )
 
 // versionCmd represents the version command

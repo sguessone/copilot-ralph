@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/JanDeDobbeleer/copilot-ralph/internal/core"
+	"github.com/Sguessone/copilot-ralph/internal/core"
 )
 
 func TestRootCommandExists(t *testing.T) {

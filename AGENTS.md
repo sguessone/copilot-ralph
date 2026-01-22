@@ -807,7 +807,7 @@ import (
     "github.com/spf13/cobra"
 
     // Internal packages
-    "github.com/JanDeDobbeleer/copilot-ralph/internal/sdk"
+    "github.com/Sguessone/copilot-ralph/internal/sdk"
 )
 
 // 3. Constants

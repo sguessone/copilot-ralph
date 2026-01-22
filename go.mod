@@ -1,13 +1,17 @@
-module github.com/JanDeDobbeleer/copilot-ralph
+module github.com/Sguessone/copilot-ralph
 
 go 1.25.5
 
 require (
 	github.com/charmbracelet/lipgloss v1.0.0
-	github.com/github/copilot-sdk/go v0.0.0-20260115160841-b8a836b2c6a3
+	github.com/github/copilot-sdk/go v0.1.15
+	github.com/github/copilot-sdk/go/generated v0.0.0-00010101000000-000000000000
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.11.1
 )
+
+// Local replacement for SDK generated types used in tests (stub)
+replace github.com/github/copilot-sdk/go/generated => ./internal/sdk/generated_stub
 
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect

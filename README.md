@@ -52,10 +52,10 @@ Ralph implements the "Ralph Wiggum" technique for self-referential AI developmen
 
 ```bash
 # From source (requires Go 1.22+)
-go install github.com/JanDeDobbeleer/copilot-ralph/cmd/ralph@latest
+go install github.com/Sguessone/copilot-ralph/cmd/ralph@latest
 
 # Or build from source
-git clone https://github.com/JanDeDobbeleer/copilot-ralph.git
+git clone https://github.com/Sguessone/copilot-ralph.git
 cd copilot-ralph
 make build
 ```
@@ -264,5 +264,5 @@ MIT License - see [LICENSE](./LICENSE) for details
 
 ## Support
 
-- **Issues:** [GitHub Issues](https://github.com/JanDeDobbeleer/copilot-ralph/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/JanDeDobbeleer/copilot-ralph/discussions)
+- **Issues:** [GitHub Issues](https://github.com/Sguessone/copilot-ralph/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/Sguessone/copilot-ralph/discussions)

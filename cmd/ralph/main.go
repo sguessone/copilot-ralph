@@ -9,7 +9,7 @@ package main
 import (
 	"os"
 
-	"github.com/JanDeDobbeleer/copilot-ralph/internal/cli"
+	"github.com/Sguessone/copilot-ralph/internal/cli"
 )
 
 func main() {
