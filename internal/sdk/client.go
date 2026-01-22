@@ -386,11 +386,18 @@ func (c *CopilotClient) sendPromptOnce(ctx context.Context, prompt string, event
 
 	defer unsubscribe()
 
-	// Send the message
-	_, err := c.sdkSession.Send(copilot.MessageOptions{
+	// Build message options and send the message
+	msgOpts := copilot.MessageOptions{
 		Prompt: prompt,
-	})
+	}
+
+	_, err := c.sdkSession.Send(msgOpts)
 	if err != nil {
+		// Attempt to include the serialized payload to aid debugging of invalid_request_body
+		if b, jbErr := json.Marshal(msgOpts); jbErr == nil {
+			return fmt.Errorf("failed to send message: %w; payload=%s", err, string(b))
+		}
+
 		return fmt.Errorf("failed to send message: %w", err)
 	}
 
