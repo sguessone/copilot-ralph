@@ -5,12 +5,12 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	copilot "github.com/github/copilot-sdk/go"
-	generated "github.com/github/copilot-sdk/go/generated"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -118,11 +118,25 @@ func TestCopilotClientStartStop(t *testing.T) {
 		require.NoError(t, err)
 
 		err = client.Start()
-		require.NoError(t, err)
+		if err != nil {
+			if strings.Contains(err.Error(), "protocol version mismatch") || strings.Contains(err.Error(), "SDK protocol version mismatch") {
+				t.Skipf("Skipping test due to incompatible copilot CLI/SDK: %v", err)
+				return
+			}
+
+			require.NoError(t, err)
+		}
 
 		// Starting again should be idempotent
 		err = client.Start()
-		require.NoError(t, err)
+		if err != nil {
+			if strings.Contains(err.Error(), "protocol version mismatch") || strings.Contains(err.Error(), "SDK protocol version mismatch") {
+				t.Skipf("Skipping test due to incompatible copilot CLI/SDK: %v", err)
+				return
+			}
+
+			require.NoError(t, err)
+		}
 
 		err = client.Stop()
 		require.NoError(t, err)
@@ -158,7 +172,14 @@ func TestCopilotClientCreateSession(t *testing.T) {
 
 		// Start the client to ensure sdkClient is initialized
 		err = client.Start()
-		require.NoError(t, err)
+		if err != nil {
+			if strings.Contains(err.Error(), "protocol version mismatch") || strings.Contains(err.Error(), "SDK protocol version mismatch") {
+				t.Skipf("Skipping test due to incompatible copilot CLI/SDK: %v", err)
+				return
+			}
+
+			require.NoError(t, err)
+		}
 
 		err = client.CreateSession(context.Background())
 		require.NoError(t, err)
@@ -414,12 +435,13 @@ type errorString string
 func (e errorString) Error() string { return string(e) }
 
 // fakeSession implements the minimal subset of copilot.Session used by client.go
+
 type fakeSession struct {
 	sendFunc func()
-	handlers []func(generated.SessionEvent)
+	handlers []func(copilot.SessionEvent)
 }
 
-func (f *fakeSession) On(h func(generated.SessionEvent)) func() {
+func (f *fakeSession) On(h func(copilot.SessionEvent)) func() {
 	f.handlers = append(f.handlers, h)
 	idx := len(f.handlers) - 1
 	return func() {
@@ -431,14 +453,14 @@ func (f *fakeSession) On(h func(generated.SessionEvent)) func() {
 func (f *fakeSession) Send(opts any) (string, error) {
 	// Simulate asynchronous events being emitted
 	go func() {
-		handlers := append([]func(generated.SessionEvent){}, f.handlers...)
+		handlers := append([]func(copilot.SessionEvent){}, f.handlers...)
 
 		// 1) streaming delta
 		for _, h := range handlers {
 			if h == nil {
 				continue
 			}
-			h(generated.SessionEvent{Type: "assistant.message_delta", Data: generated.Data{DeltaContent: ptrString("Hello ")}})
+			h(copilot.SessionEvent{Type: copilot.SessionEventType("assistant.message_delta"), Data: copilot.Data{DeltaContent: ptrString("Hello ")}})
 		}
 
 		// 2) final message
@@ -446,7 +468,7 @@ func (f *fakeSession) Send(opts any) (string, error) {
 			if h == nil {
 				continue
 			}
-			h(generated.SessionEvent{Type: "assistant.message", Data: generated.Data{Content: ptrString("Hello world")}})
+			h(copilot.SessionEvent{Type: copilot.SessionEventType("assistant.message"), Data: copilot.Data{Content: ptrString("Hello world")}})
 		}
 
 		// 3) session idle
@@ -454,7 +476,7 @@ func (f *fakeSession) Send(opts any) (string, error) {
 			if h == nil {
 				continue
 			}
-			h(generated.SessionEvent{Type: "session.idle"})
+			h(copilot.SessionEvent{Type: copilot.SessionEventType("session.idle")})
 		}
 	}()
 
@@ -493,28 +515,27 @@ func TestHandleSDKEventVariousTypes(t *testing.T) {
 	pending := make(map[string]ToolCall)
 
 	// assistant.message_delta
-	c.handleSDKEvent(generated.SessionEvent{Type: "assistant.message_delta", Data: generated.Data{DeltaContent: ptrString("part")}}, events, closeDone, pending)
+	c.handleSDKEvent(copilot.SessionEvent{Type: copilot.SessionEventType("assistant.message_delta"), Data: copilot.Data{DeltaContent: ptrString("part")}}, events, closeDone, pending)
 
 	// assistant.message
-	c.handleSDKEvent(generated.SessionEvent{Type: "assistant.message", Data: generated.Data{Content: ptrString("full")}}, events, closeDone, pending)
+	c.handleSDKEvent(copilot.SessionEvent{Type: copilot.SessionEventType("assistant.message"), Data: copilot.Data{Content: ptrString("full")}}, events, closeDone, pending)
 
 	// tool.execution_start
-	c.handleSDKEvent(generated.SessionEvent{Type: "tool.execution_start", Data: generated.Data{ToolName: ptrString("edit"), ToolCallID: ptrString("1"), Arguments: map[string]any{"path": "a.go"}}}, events, closeDone, pending)
+	c.handleSDKEvent(copilot.SessionEvent{Type: copilot.SessionEventType("tool.execution_start"), Data: copilot.Data{ToolName: ptrString("edit"), ToolCallID: ptrString("1"), Arguments: map[string]any{"path": "a.go"}}}, events, closeDone, pending)
 
 	// tool.execution_complete success
-	// adapt to copilot.ToolResult fields
-	c.handleSDKEvent(generated.SessionEvent{Type: "tool.execution_complete", Data: generated.Data{ToolCallID: ptrString("1"), ToolName: ptrString("edit"), Result: &generated.Result{Content: "ok"}, Success: ptrBool(true)}}, events, closeDone, pending)
+	c.handleSDKEvent(copilot.SessionEvent{Type: copilot.SessionEventType("tool.execution_complete"), Data: copilot.Data{ToolCallID: ptrString("1"), ToolName: ptrString("edit"), Result: &copilot.Result{Content: "ok"}, Success: ptrBool(true)}}, events, closeDone, pending)
 
 	// tool.execution_complete failure with Error.String
 	errStr := "tool failed"
-	c.handleSDKEvent(generated.SessionEvent{Type: "tool.execution_complete", Data: generated.Data{ToolCallID: ptrString("2"), ToolName: ptrString("run"), Result: &generated.Result{Content: ""}, Success: ptrBool(false), Error: &generated.ErrorUnion{String: &errStr}}}, events, closeDone, pending)
+	c.handleSDKEvent(copilot.SessionEvent{Type: copilot.SessionEventType("tool.execution_complete"), Data: copilot.Data{ToolCallID: ptrString("2"), ToolName: ptrString("run"), Result: &copilot.Result{Content: ""}, Success: ptrBool(false), Error: &copilot.ErrorUnion{String: &errStr}}}, events, closeDone, pending)
 
 	// session.error
 	msg := "bad"
-	c.handleSDKEvent(generated.SessionEvent{Type: "session.error", Data: generated.Data{Message: &msg}}, events, closeDone, pending)
+	c.handleSDKEvent(copilot.SessionEvent{Type: copilot.SessionEventType("session.error"), Data: copilot.Data{Message: &msg}}, events, closeDone, pending)
 
 	// session.idle should call closeDone
-	c.handleSDKEvent(generated.SessionEvent{Type: "session.idle"}, events, closeDone, pending)
+	c.handleSDKEvent(copilot.SessionEvent{Type: copilot.SessionEventType("session.idle")}, events, closeDone, pending)
 
 	// Drain events and assert some expected types
 	received := []Event{}
@@ -581,18 +602,3 @@ drainLoop:
 		}
 	}
 }
-
-// testSessionAdapter adapts fakeSession to the concrete type expected by client.sendPromptOnce signature
-// by implementing the methods used by sendPromptOnce via compatible signatures.
-
-type testSessionAdapter struct{ inner *fakeSession }
-
-func (a *testSessionAdapter) On(h func(copilot.SessionEvent)) func() {
-	return a.inner.On(func(e generated.SessionEvent) { h(copilot.SessionEvent{Type: e.Type, Data: generated.Data{}}) })
-}
-func (a *testSessionAdapter) Send(opts copilot.MessageOptions) (string, error) {
-	// Delegate to inner and ignore options
-	return a.inner.Send(nil)
-}
-func (a *testSessionAdapter) Abort() error   { return a.inner.Abort() }
-func (a *testSessionAdapter) Destroy() error { return a.inner.Destroy() }
