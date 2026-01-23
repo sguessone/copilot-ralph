@@ -538,7 +538,7 @@ func TestDefaultLoopConfig(t *testing.T) {
 	assert.Equal(t, 10, config.MaxIterations)
 	assert.Equal(t, 30*time.Minute, config.Timeout)
 	assert.Equal(t, "I'm special!", config.PromisePhrase)
-	assert.Equal(t, "gpt-4", config.Model)
+	assert.Equal(t, "gpt-5-mini", config.Model)
 	assert.Equal(t, ".", config.WorkingDir)
 }
 

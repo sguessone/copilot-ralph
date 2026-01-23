@@ -553,7 +553,7 @@ func (m RunnerModel) View() string {
 
 ```go
 // 1. Create client
-client, err := NewCopilotClient(WithModel("gpt-4"))
+client, err := NewCopilotClient(WithModel("gpt-5-mini"))
 if err != nil {
     return err
 }

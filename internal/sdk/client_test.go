@@ -405,7 +405,7 @@ func TestSendPromptWithRetryCancelledContext(t *testing.T) {
 	// Methods would be defined on fakeSession in a full mock, but are omitted here
 
 	// Can't inject this into client easily; instead test is limited to asserting client methods exist
-	assert.Equal(t, "gpt-4", client.Model())
+	assert.Equal(t, "gpt-5-mini", client.Model())
 
 	// Ensure safeEventSender returns error on closed channel
 	events := make(chan Event, 1)

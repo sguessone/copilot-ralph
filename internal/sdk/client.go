@@ -27,7 +27,7 @@ import (
 
 // Default configuration values.
 const (
-	DefaultModel     = "gpt-4"
+	DefaultModel     = "gpt-5-mini"
 	DefaultLogLevel  = "info"
 	DefaultTimeout   = 60 * time.Second
 	DefaultStreaming = true

@@ -81,7 +81,7 @@ func init() {
 	runCmd.Flags().IntVarP(&runMaxIterations, "max-iterations", "m", 10, "maximum loop iterations")
 	runCmd.Flags().DurationVarP(&runTimeout, "timeout", "t", 30*time.Minute, "maximum loop runtime")
 	runCmd.Flags().StringVar(&runPromise, "promise", "I'm special!", "completion promise phrase")
-	runCmd.Flags().StringVar(&runModel, "model", "gpt-4", "AI model to use")
+	runCmd.Flags().StringVar(&runModel, "model", "gpt-5-mini", "AI model to use")
 	runCmd.Flags().StringVar(&runWorkingDir, "working-dir", ".", "working directory for loop execution")
 	runCmd.Flags().BoolVar(&runDryRun, "dry-run", false, "show what would be executed without running")
 	runCmd.Flags().BoolVar(&runStreaming, "streaming", true, "enable streaming responses")

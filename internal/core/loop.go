@@ -59,7 +59,7 @@ func DefaultLoopConfig() *LoopConfig {
 		MaxIterations: 10,
 		Timeout:       30 * time.Minute,
 		PromisePhrase: "I'm special!",
-		Model:         "gpt-4",
+		Model:         "gpt-5-mini",
 		WorkingDir:    ".",
 	}
 }

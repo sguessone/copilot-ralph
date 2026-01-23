@@ -141,7 +141,7 @@ func TestBuildLoopConfig(t *testing.T) {
 			maxIterations:  10,
 			timeout:        30 * time.Minute,
 			promise:        "I'm special!",
-			model:          "gpt-4",
+			model:          "gpt-5-mini",
 			workingDir:     ".",
 			expectedPrompt: "my task",
 		},
@@ -272,7 +272,7 @@ func TestValidateSettings(t *testing.T) {
 func TestPrintDryRun(t *testing.T) {
 	cfg := &core.LoopConfig{
 		Prompt:        "test prompt",
-		Model:         "gpt-4",
+		Model:         "gpt-5-mini",
 		MaxIterations: 5,
 		Timeout:       10 * time.Minute,
 		PromisePhrase: "Done!",
@@ -296,7 +296,7 @@ func TestPrintDryRun(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, output, "Configuration Preview")
 	assert.Contains(t, output, "test prompt")
-	assert.Contains(t, output, "gpt-4")
+	assert.Contains(t, output, "gpt-5-mini")
 	assert.Contains(t, output, "5")
 }
 

@@ -72,7 +72,7 @@ func TestPrintLoopConfigAndSummary(t *testing.T) {
 	require.NoError(t, err)
 	os.Stdout = w
 
-	cfg := &core.LoopConfig{Prompt: "task", Model: "gpt-4", MaxIterations: 2, Timeout: 5 * time.Minute, PromisePhrase: "Done!", WorkingDir: "."}
+	cfg := &core.LoopConfig{Prompt: "task", Model: "gpt-5-mini", MaxIterations: 2, Timeout: 5 * time.Minute, PromisePhrase: "Done!", WorkingDir: "."}
 	printLoopConfig(cfg)
 
 	result := &core.LoopResult{State: core.StateComplete, Iterations: 2}
