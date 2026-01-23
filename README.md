@@ -192,6 +192,33 @@ Run `ralph run --help` for all available options.
 
 ## Development
 
+## Index & Search (quick examples)
+
+Use the built-in indexer and search commands to build a lightweight repository
+index and query relevant code/text snippets. These are useful for testing the
+indexer locally without starting the Copilot SDK session.
+
+Index the repository and save the index to `.repo_index.json` in the repo root:
+
+```bash
+# run from repo root
+ralph index --root . --save .repo_index.json
+```
+
+Search the saved index for a query and return the top 5 results:
+
+```bash
+ralph search --index .repo_index.json --q "fix bug X" --k 5
+```
+
+You can also index a subdirectory or save to a different path:
+
+```bash
+ralph index --root internal/core --save internal/core.index.json
+ralph search --index internal/core.index.json --q "promise detection" --k 3
+```
+
+
 ### Prerequisites
 
 - Go 1.24 or later

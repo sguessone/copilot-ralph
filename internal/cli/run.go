@@ -472,5 +472,15 @@ func createSDKClient(loopConfig *core.LoopConfig) (*sdk.CopilotClient, error) {
 		opts = append(opts, sdk.WithSystemMessage(systemPrompt, "append"))
 	}
 
-	return sdk.NewCopilotClient(opts...)
+	client, err := sdk.NewCopilotClient(opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	// Register basic workspace tools (read_file, list_files)
+	if err := client.RegisterDefaultTools(); err != nil {
+		return nil, err
+	}
+
+	return client, nil
 }

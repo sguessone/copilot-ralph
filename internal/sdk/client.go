@@ -9,14 +9,20 @@
 package sdk
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	copilot "github.com/github/copilot-sdk/go"
+
+	"github.com/sguessone/copilot-ralph/internal/indexer"
 )
 
 // Default configuration values.
@@ -75,6 +81,7 @@ type CopilotClient struct {
 	timeout           time.Duration
 	streaming         bool
 	started           bool
+	toolDefs          []copilot.Tool
 }
 
 // clientConfig holds configuration options for the client.
@@ -233,6 +240,7 @@ func (c *CopilotClient) CreateSession(ctx context.Context) error {
 	sessionConfig := &copilot.SessionConfig{
 		Model:     c.model,
 		Streaming: c.streaming,
+		Tools:     c.toolDefs,
 	}
 
 	// Configure system message if provided
@@ -251,6 +259,334 @@ func (c *CopilotClient) CreateSession(ctx context.Context) error {
 
 	// Store SDK session reference; we no longer maintain a local Session wrapper
 	c.sdkSession = sdkSession
+	// Register runtime tool handlers with the SDK session if any
+	// The copilot SDK will invoke ToolHandler functions when tools are called.
+	// Note: tools are provided via SessionConfig.Tools at session creation time, so
+	// additional registration is not required here.
+	return nil
+}
+
+// RegisterTool registers a tool to be exposed to the Copilot CLI for sessions.
+// Must be called before CreateSession.
+func (c *CopilotClient) RegisterTool(tool copilot.Tool) error {
+	if c.started {
+		return fmt.Errorf("cannot register tool after client started")
+	}
+	c.toolDefs = append(c.toolDefs, tool)
+	return nil
+}
+
+// RegisterDefaultTools registers common helpers used by Ralph: `read_file` and `list_files`.
+// Call this before CreateSession to expose the tools to the agent.
+func (c *CopilotClient) RegisterDefaultTools() error {
+	// read_file: {path: string}
+	readFileTool := copilot.Tool{
+		Name:        "read_file",
+		Description: "Read a text file from the workspace; parameters: path (string)",
+		Parameters:  map[string]interface{}{"path": "string"},
+		Handler: func(invocation copilot.ToolInvocation) (copilot.ToolResult, error) {
+			// Arguments may be string or object; try to extract path
+			var path string
+			switch a := invocation.Arguments.(type) {
+			case string:
+				path = a
+			case map[string]interface{}:
+				if p, ok := a["path"].(string); ok {
+					path = p
+				}
+			}
+
+			if path == "" {
+				return copilot.ToolResult{ResultType: "error", Error: "missing path parameter"}, fmt.Errorf("missing path parameter")
+			}
+
+			full := path
+			// If relative path, use current working dir of client if set
+			if !strings.HasPrefix(path, "/") && c.workingDir != "" {
+				full = filepath.Join(c.workingDir, path)
+			}
+
+			data, err := os.ReadFile(full)
+			if err != nil {
+				return copilot.ToolResult{ResultType: "error", Error: err.Error()}, err
+			}
+
+			return copilot.ToolResult{TextResultForLLM: string(data), ResultType: "text"}, nil
+		},
+	}
+
+	if err := c.RegisterTool(readFileTool); err != nil {
+		return err
+	}
+
+	// list_files: {pattern: string}
+	listFilesTool := copilot.Tool{
+		Name:        "list_files",
+		Description: "List files matching glob pattern; parameters: pattern (string)",
+		Parameters:  map[string]interface{}{"pattern": "string"},
+		Handler: func(invocation copilot.ToolInvocation) (copilot.ToolResult, error) {
+			var pattern string
+			switch a := invocation.Arguments.(type) {
+			case string:
+				pattern = a
+			case map[string]interface{}:
+				if p, ok := a["pattern"].(string); ok {
+					pattern = p
+				}
+			}
+
+			if pattern == "" {
+				return copilot.ToolResult{ResultType: "error", Error: "missing pattern parameter"}, fmt.Errorf("missing pattern parameter")
+			}
+
+			// Resolve relative pattern against working dir
+			globPattern := pattern
+			if !strings.HasPrefix(pattern, "/") && c.workingDir != "" {
+				globPattern = filepath.Join(c.workingDir, pattern)
+			}
+
+			matches, err := filepath.Glob(globPattern)
+			if err != nil {
+				return copilot.ToolResult{ResultType: "error", Error: err.Error()}, err
+			}
+
+			// Join results
+			res := strings.Join(matches, "\n")
+			return copilot.ToolResult{TextResultForLLM: res, ResultType: "text"}, nil
+		},
+	}
+
+	// Register list_files
+	if err := c.RegisterTool(listFilesTool); err != nil {
+		return err
+	}
+
+	// run_tests: optional parameters: cmd (string), timeout (seconds)
+	runTestsTool := copilot.Tool{
+		Name:        "run_tests",
+		Description: "Run test command in the repository; parameters: cmd (string, optional), timeout (seconds, optional)",
+		Parameters:  map[string]interface{}{"cmd": "string", "timeout": "number"},
+		Handler: func(invocation copilot.ToolInvocation) (copilot.ToolResult, error) {
+			cmdStr := "go test ./..."
+			timeoutSec := 120
+
+			switch a := invocation.Arguments.(type) {
+			case string:
+				if a != "" {
+					cmdStr = a
+				}
+			case map[string]interface{}:
+				if cval, ok := a["cmd"].(string); ok && cval != "" {
+					cmdStr = cval
+				}
+				if tval, ok := a["timeout"].(float64); ok && tval > 0 {
+					timeoutSec = int(tval)
+				}
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec)*time.Second)
+			defer cancel()
+
+			execCmd := exec.CommandContext(ctx, "/bin/sh", "-c", cmdStr)
+			if c.workingDir != "" {
+				execCmd.Dir = c.workingDir
+			}
+
+			var out bytes.Buffer
+			execCmd.Stdout = &out
+			execCmd.Stderr = &out
+
+			err := execCmd.Run()
+			res := out.String()
+			if err != nil {
+				return copilot.ToolResult{TextResultForLLM: res, ResultType: "error", Error: err.Error()}, err
+			}
+
+			return copilot.ToolResult{TextResultForLLM: res, ResultType: "success"}, nil
+		},
+	}
+
+	if err := c.RegisterTool(runTestsTool); err != nil {
+		return err
+	}
+
+	// run_build: optional parameters: cmd (string), timeout (seconds)
+	runBuildTool := copilot.Tool{
+		Name:        "run_build",
+		Description: "Run build command in the repository; parameters: cmd (string, optional), timeout (seconds, optional)",
+		Parameters:  map[string]interface{}{"cmd": "string", "timeout": "number"},
+		Handler: func(invocation copilot.ToolInvocation) (copilot.ToolResult, error) {
+			cmdStr := "go build ./..."
+			timeoutSec := 120
+
+			switch a := invocation.Arguments.(type) {
+			case string:
+				if a != "" {
+					cmdStr = a
+				}
+			case map[string]interface{}:
+				if cval, ok := a["cmd"].(string); ok && cval != "" {
+					cmdStr = cval
+				}
+				if tval, ok := a["timeout"].(float64); ok && tval > 0 {
+					timeoutSec = int(tval)
+				}
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec)*time.Second)
+			defer cancel()
+
+			execCmd := exec.CommandContext(ctx, "/bin/sh", "-c", cmdStr)
+			if c.workingDir != "" {
+				execCmd.Dir = c.workingDir
+			}
+
+			var out bytes.Buffer
+			execCmd.Stdout = &out
+			execCmd.Stderr = &out
+
+			err := execCmd.Run()
+			res := out.String()
+			if err != nil {
+				return copilot.ToolResult{TextResultForLLM: res, ResultType: "error", Error: err.Error()}, err
+			}
+
+			return copilot.ToolResult{TextResultForLLM: res, ResultType: "success"}, nil
+		},
+	}
+
+	if err := c.RegisterTool(runBuildTool); err != nil {
+		return err
+	}
+
+	// search_index: op=index|query, root (optional), save (optional), q/query (string), k (number)
+	searchTool := copilot.Tool{
+		Name:        "search_index",
+		Description: "Index repository and query snippets; parameters: op (index|query), root (optional), save (optional), q/query (string), k (number)",
+		Parameters:  map[string]interface{}{"op": "string", "root": "string", "save": "string", "q": "string", "k": "number", "rebuild": "boolean"},
+		Handler: func(invocation copilot.ToolInvocation) (copilot.ToolResult, error) {
+			var args map[string]interface{}
+			var asStr string
+			switch a := invocation.Arguments.(type) {
+			case string:
+				asStr = a
+			case map[string]interface{}:
+				args = a
+			}
+
+			op := "query"
+			if args != nil {
+				if v, ok := args["op"].(string); ok && v != "" {
+					op = v
+				}
+			}
+
+			// default index path
+			idxPath := filepath.Join(c.workingDir, ".repo_index.json")
+			if args != nil {
+				if v, ok := args["save"].(string); ok && v != "" {
+					if strings.HasPrefix(v, "/") {
+						idxPath = v
+					} else {
+						idxPath = filepath.Join(c.workingDir, v)
+					}
+				}
+				if v, ok := args["root"].(string); ok && v != "" {
+					// use provided root for indexing
+					// make it absolute relative to workingDir if needed
+					if !strings.HasPrefix(v, "/") {
+						v = filepath.Join(c.workingDir, v)
+					}
+					args["root"] = v
+				}
+			}
+
+			// handle index operation
+			if op == "index" {
+				root := c.workingDir
+				if args != nil {
+					if v, ok := args["root"].(string); ok && v != "" {
+						root = v
+					}
+				}
+
+				idx, err := indexer.IndexRepo(root)
+				if err != nil {
+					return copilot.ToolResult{ResultType: "error", Error: err.Error()}, err
+				}
+
+				if err := idx.Save(idxPath); err != nil {
+					return copilot.ToolResult{ResultType: "error", Error: err.Error()}, err
+				}
+
+				msg := fmt.Sprintf("indexed %d chunks and saved to %s", len(idx.Chunks), idxPath)
+				return copilot.ToolResult{TextResultForLLM: msg, ResultType: "success"}, nil
+			}
+
+			// handle query operation
+			var query string
+			var k int = 5
+			if asStr != "" {
+				query = asStr
+			}
+			if args != nil {
+				if v, ok := args["q"].(string); ok && v != "" {
+					query = v
+				}
+				if v, ok := args["query"].(string); ok && v != "" {
+					query = v
+				}
+				if v, ok := args["k"].(float64); ok && int(v) > 0 {
+					k = int(v)
+				}
+				if rb, ok := args["rebuild"].(bool); ok && rb {
+					// force rebuild
+					idx, err := indexer.IndexRepo(c.workingDir)
+					if err != nil {
+						return copilot.ToolResult{ResultType: "error", Error: err.Error()}, err
+					}
+					if err := idx.Save(idxPath); err != nil {
+						return copilot.ToolResult{ResultType: "error", Error: err.Error()}, err
+					}
+				}
+			}
+
+			if query == "" {
+				return copilot.ToolResult{ResultType: "error", Error: "empty query"}, fmt.Errorf("empty query")
+			}
+
+			// try to load index
+			idx, err := indexer.Load(idxPath)
+			if err != nil {
+				// attempt to build if load failed
+				idx, err = indexer.IndexRepo(c.workingDir)
+				if err != nil {
+					return copilot.ToolResult{ResultType: "error", Error: err.Error()}, err
+				}
+				_ = idx.Save(idxPath)
+			}
+
+			results := idx.Search(query, k)
+			if len(results) == 0 {
+				return copilot.ToolResult{TextResultForLLM: "no results", ResultType: "text"}, nil
+			}
+
+			// format results
+			var sb strings.Builder
+			for i, r := range results {
+				sb.WriteString(fmt.Sprintf("%d) [score=%.4f] %s\n", i+1, r.Score, r.Path))
+				sb.WriteString(r.Text)
+				sb.WriteString("\n---\n")
+			}
+
+			return copilot.ToolResult{TextResultForLLM: sb.String(), ResultType: "text"}, nil
+		},
+	}
+
+	if err := c.RegisterTool(searchTool); err != nil {
+		return err
+	}
+
 	return nil
 }
 

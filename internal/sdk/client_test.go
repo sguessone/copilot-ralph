@@ -572,6 +572,26 @@ loop:
 	assert.True(t, closed, "closeDone should be called on session.idle")
 }
 
+func TestRegisterDefaultToolsIncludesSearchIndex(t *testing.T) {
+	client, err := NewCopilotClient()
+	require.NoError(t, err)
+
+	// Register default tools - should not start the SDK
+	err = client.RegisterDefaultTools()
+	require.NoError(t, err)
+
+	// Ensure the search_index tool is registered
+	found := false
+	for _, td := range client.toolDefs {
+		if td.Name == "search_index" {
+			found = true
+			break
+		}
+	}
+
+	assert.True(t, found, "search_index should be registered by RegisterDefaultTools")
+}
+
 func ptrBool(b bool) *bool { return &b }
 
 func TestSendPromptOnceWithFakeSession(t *testing.T) {
